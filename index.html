@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#f6f7fb" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Chores" />
+    <title>Chores Guide</title>
+    <link rel="icon" href="icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="icon.svg" />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="app-shell" aria-live="polite">
+      <section class="phone">
+        <section id="setupScreen" class="screen setup-screen">
+          <div class="login-card">
+            <div class="brand">
+              <span class="app-icon" role="img" aria-label="Chores logo">
+                <span aria-hidden="true">🧹</span>
+              </span>
+              <div>
+                <p class="eyebrow">Weekly chores</p>
+                <h1>Who are you?</h1>
+              </div>
+            </div>
+            <p class="intro">
+              Log in accordingly! The phone will open straight to your chores next time.
+            </p>
+            <div id="residentChips" class="resident-chips" aria-hidden="true"></div>
+
+            <form id="profileForm" class="setup-form">
+              <label>
+                Your name
+                <select id="residentSelect" required></select>
+              </label>
+              <label id="adminPasswordGroup" class="hidden">
+                Jeff admin password
+                <input
+                  id="adminPasswordInput"
+                  type="password"
+                  inputmode="numeric"
+                  autocomplete="current-password"
+                  placeholder="Enter password"
+                />
+              </label>
+              <p id="loginError" class="login-error hidden">Wrong password for Jeff.</p>
+              <button class="primary-button" type="submit">Open my chores</button>
+            </form>
+          </div>
+        </section>
+
+        <section id="appScreen" class="screen app-screen hidden">
+          <header class="app-header">
+            <div>
+              <p id="dateLabel" class="eyebrow">Next chore night</p>
+              <h1 id="greeting">Chores</h1>
+            </div>
+            <button id="logoutButton" class="icon-button" type="button" aria-label="Change profile">
+              <span aria-hidden="true">↻</span>
+            </button>
+          </header>
+
+          <section class="hero-panel">
+            <div>
+              <p class="eyebrow">Up next</p>
+              <h2 id="nextChoreNight">Monday</h2>
+              <p id="countdownLabel" class="countdown-label">Loading countdown</p>
+              <p id="streakLabel" class="streak-label">0x group streak 🔥</p>
+            </div>
+          </section>
+
+          <section id="adminPanel" class="admin-panel hidden">
+            <div class="admin-copy">
+              <p class="eyebrow">Jeff controls</p>
+              <h2>Quick changes</h2>
+              <small>Only Jeff can move the week.</small>
+            </div>
+            <div class="admin-actions">
+              <button id="advanceButton" class="admin-button next" type="button">Next</button>
+              <button id="resetButton" class="admin-button reset" type="button">Reset Today</button>
+            </div>
+          </section>
+
+          <section class="today-card">
+            <div class="section-heading">
+              <h2>My chores</h2>
+              <span id="myCount">0</span>
+            </div>
+            <div id="myChores" class="my-chores"></div>
+          </section>
+
+          <nav class="day-tabs" aria-label="Schedule days">
+            <button class="active" type="button" data-day="monday">Monday</button>
+            <button type="button" data-day="thursday">Thursday</button>
+          </nav>
+
+          <section class="status-card">
+            <button
+              id="statusToggle"
+              class="status-tab"
+              type="button"
+              aria-expanded="false"
+              aria-controls="statusList"
+            >
+              <span>
+                <strong>Done status</strong>
+                <small id="statusSummary">0 of 0 finished</small>
+              </span>
+              <span id="doneCount" class="status-count">0/0</span>
+            </button>
+            <div id="statusList" class="status-list hidden"></div>
+          </section>
+
+          <section class="schedule-card">
+            <div class="section-heading">
+              <h2 id="scheduleTitle">Monday schedule</h2>
+              <span id="rotationLabel">Round 1</span>
+            </div>
+            <div id="scheduleList" class="schedule-list"></div>
+          </section>
+        </section>
+      </section>
+
+      <section id="progressPopup" class="popup-backdrop hidden" role="dialog" aria-modal="true" aria-label="Chore progress update">
+        <div class="popup-card">
+          <div class="popup-header">
+            <div>
+              <p class="eyebrow">Chore update</p>
+              <h2>Progress so far</h2>
+            </div>
+            <button id="closePopupButton" class="icon-button" type="button" aria-label="Close update">×</button>
+          </div>
+          <div id="popupBody" class="popup-body"></div>
+        </div>
+      </section>
+    </main>
+
+    <script src="app.js?v=20260525-reset-current"></script>
+  </body>
+</html>
