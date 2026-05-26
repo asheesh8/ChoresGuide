@@ -1,6 +1,7 @@
 const residents = ["JT", "Liam", "Jeff", "Todd", "Tom", "Oliver"];
 const adminPassword = "360360";
 const timeApiUrl = "https://timeapi.io/api/time/current/zone?timeZone=America/New_York";
+const sharedStateApi = "/.netlify/functions/chores-state";
 const chores = [
   "Smoking area",
   "Stairs hallway",
@@ -65,6 +66,8 @@ let currentDate = startOfDay(new Date());
 let choreDate = getStoredChoreDate();
 let statusOpen = false;
 let showReloadPopup = Boolean(profile);
+let remoteEnabled = false;
+let remoteNeedsCycleSync = false;
 activeDay = getDayKeyForDate(choreDate);
 
 residentSelect.innerHTML = residents
@@ -88,6 +91,7 @@ profileForm.addEventListener("submit", (event) => {
   profile = {
     name: residentSelect.value,
     isAdmin: isJeff,
+    adminToken: isJeff ? adminPasswordInput.value : "",
     rememberedAt: new Date().toISOString(),
   };
   localStorage.setItem(storageKeys.profile, JSON.stringify(profile));
@@ -105,19 +109,22 @@ logoutButton.addEventListener("click", () => {
   appScreen.classList.add("hidden");
 });
 
-advanceButton.addEventListener("click", () => {
+advanceButton.addEventListener("click", async () => {
   if (!isJeffAdmin()) return;
   rotation += 1;
   choreDate = getNextChoreDate(choreDate);
   activeDay = getDayKeyForDate(choreDate);
-  localStorage.setItem(storageKeys.rotation, String(rotation));
-  saveChoreDate();
-  render();
+  persistState();
+  render(true);
+  await runRemoteAction("advance", {
+    choreDate: toDateKey(choreDate),
+    adminPassword: getAdminPasswordForRequest(),
+  });
 });
 
-resetButton.addEventListener("click", () => {
+resetButton.addEventListener("click", async () => {
   if (!isJeffAdmin()) return;
-  resetToCurrentDate();
+  await resetToCurrentDate();
 });
 
 dayTabs.forEach((tab) => {
@@ -141,6 +148,15 @@ setInterval(updateCountdown, 1000);
 
 async function initializeApp() {
   await syncLiveDate();
+  await loadRemoteState();
+  const cycleChanged = syncChoreDateToCurrentDate();
+  if (cycleChanged || remoteNeedsCycleSync) {
+    await runRemoteAction("syncCycle", {
+      rotation,
+      choreDate: toDateKey(choreDate),
+    });
+    remoteNeedsCycleSync = false;
+  }
   if (profile) showApp();
 }
 
@@ -228,29 +244,61 @@ function renderMyChores(schedule, day, offset) {
 
   document.querySelectorAll(".chore-toggle").forEach((button) => {
     button.addEventListener("click", () => {
-      const key = button.dataset.key;
-      if (isChoreComplete(key)) {
-        delete completed[key];
-      } else {
-        completed[key] = new Date().toISOString();
-      }
-      localStorage.setItem(storageKeys.completed, JSON.stringify(completed));
-      render();
+      toggleCompletion(button.dataset.key, profile.name);
     });
+  });
+}
+
+async function toggleCompletion(key, assignedTo) {
+  const completedAt = new Date().toISOString();
+
+  if (isChoreComplete(key)) {
+    delete completed[key];
+  } else {
+    completed[key] = completedAt;
+  }
+
+  persistState();
+  render(true);
+
+  await runRemoteAction("toggleCompletion", {
+    key,
+    assignedTo,
+    actor: profile.name,
+    completedAt,
+    adminPassword: getAdminPasswordForRequest(),
   });
 }
 
 function renderSchedule(schedule) {
   scheduleList.innerHTML = schedule
-    .map(
-      (item) => `
-        <div class="schedule-item">
-          <strong>${item.chore}</strong>
-          <span class="person-${item.person}">${item.person}</span>
+    .map((item) => {
+      const key = completionKey(getScheduleOffset(activeDay), activeDay, item.chore);
+      const isDone = isChoreComplete(key);
+      return `
+        <div class="schedule-item ${isDone ? "complete" : ""}">
+          <div>
+            <strong>${item.chore}</strong>
+            <small>${isDone ? "Done" : "Not done yet"}</small>
+          </div>
+          <div class="schedule-actions">
+            <span class="person-${item.person}">${item.person}</span>
+            ${
+              isJeffAdmin()
+                ? `<button class="schedule-check ${isDone ? "done" : ""}" type="button" data-key="${key}" data-person="${item.person}" aria-label="Mark ${item.person} ${item.chore} ${isDone ? "not done" : "done"}">${isDone ? "✓" : ""}</button>`
+                : `<span class="schedule-dot ${isDone ? "done" : ""}">${isDone ? "✓" : ""}</span>`
+            }
+          </div>
         </div>
-      `,
-    )
+      `;
+    })
     .join("");
+
+  document.querySelectorAll(".schedule-check").forEach((button) => {
+    button.addEventListener("click", () => {
+      toggleCompletion(button.dataset.key, button.dataset.person);
+    });
+  });
 }
 
 function renderDoneStatus(schedule, day, offset) {
@@ -340,19 +388,19 @@ function setChoreDate(selectedDate) {
   render(true);
 }
 
-function resetToCurrentDate() {
+async function resetToCurrentDate() {
   rotation = 0;
   completed = {};
   streak = 0;
   lastAwardedCycle = "";
   choreDate = getInitialChoreDate(currentDate);
   activeDay = getDayKeyForDate(choreDate);
-  localStorage.setItem(storageKeys.rotation, String(rotation));
-  localStorage.setItem(storageKeys.completed, JSON.stringify(completed));
-  localStorage.setItem(storageKeys.streak, String(streak));
-  localStorage.setItem(storageKeys.lastAwardedCycle, lastAwardedCycle);
-  saveChoreDate();
+  persistState();
   render(true);
+  await runRemoteAction("reset", {
+    choreDate: toDateKey(choreDate),
+    adminPassword: getAdminPasswordForRequest(),
+  });
 }
 
 function maybeAwardCycleStreak(schedule, day, offset) {
@@ -365,8 +413,8 @@ function maybeAwardCycleStreak(schedule, day, offset) {
 
   streak += 1;
   lastAwardedCycle = cycleKey;
-  localStorage.setItem(storageKeys.streak, String(streak));
-  localStorage.setItem(storageKeys.lastAwardedCycle, lastAwardedCycle);
+  persistState();
+  runRemoteAction("awardStreak", { cycleKey });
 }
 
 function getSchedule(offset) {
@@ -399,6 +447,74 @@ function isOnTimeCompletion(key) {
   return Boolean(completedAt) && completedAt < getCycleDeadlineDateTime();
 }
 
+async function loadRemoteState() {
+  try {
+    const response = await fetch(sharedStateApi, { cache: "no-store" });
+    if (!response.ok) throw new Error("Shared state unavailable");
+    const state = await response.json();
+    remoteNeedsCycleSync = !state.choreDate;
+    applyRemoteState(state);
+    remoteEnabled = true;
+    persistState();
+  } catch {
+    remoteEnabled = false;
+  }
+}
+
+async function runRemoteAction(action, payload = {}) {
+  if (!remoteEnabled) return false;
+
+  try {
+    const response = await fetch(sharedStateApi, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action, ...payload }),
+    });
+
+    if (!response.ok) throw new Error("Shared state update failed");
+    const state = await response.json();
+    applyRemoteState(state);
+    const cycleChanged = syncChoreDateToCurrentDate();
+    persistState();
+    if (profile) render();
+
+    if (cycleChanged) {
+      await runRemoteAction("syncCycle", {
+        rotation,
+        choreDate: toDateKey(choreDate),
+      });
+    }
+
+    return true;
+  } catch {
+    remoteEnabled = false;
+    return false;
+  }
+}
+
+function applyRemoteState(state) {
+  if (!state || typeof state !== "object") return;
+
+  rotation = Number.isFinite(Number(state.rotation)) ? Number(state.rotation) : rotation;
+  completed = state.completed && typeof state.completed === "object" ? state.completed : completed;
+  streak = Number.isFinite(Number(state.streak)) ? Number(state.streak) : streak;
+  lastAwardedCycle = typeof state.lastAwardedCycle === "string" ? state.lastAwardedCycle : lastAwardedCycle;
+  if (state.choreDate) choreDate = parseLocalDate(state.choreDate);
+  activeDay = getDayKeyForDate(choreDate);
+}
+
+function persistState() {
+  localStorage.setItem(storageKeys.rotation, String(rotation));
+  localStorage.setItem(storageKeys.completed, JSON.stringify(completed));
+  localStorage.setItem(storageKeys.streak, String(streak));
+  localStorage.setItem(storageKeys.lastAwardedCycle, lastAwardedCycle);
+  saveChoreDate();
+}
+
+function getAdminPasswordForRequest() {
+  return isJeffAdmin() ? profile.adminToken || adminPassword : "";
+}
+
 async function syncLiveDate() {
   currentDate = await getLiveDate();
   syncChoreDateToCurrentDate();
@@ -427,9 +543,10 @@ function syncChoreDateToCurrentDate() {
   activeDay = getDayKeyForDate(choreDate);
 
   if (changed) {
-    localStorage.setItem(storageKeys.rotation, String(rotation));
-    saveChoreDate();
+    persistState();
   }
+
+  return changed;
 }
 
 function getStoredChoreDate() {

@@ -615,7 +615,7 @@ input:focus {
 }
 
 .schedule-item {
-  min-height: 50px;
+  min-height: 56px;
   display: grid;
   grid-template-columns: 1fr auto;
   align-items: center;
@@ -628,10 +628,29 @@ input:focus {
 }
 
 .schedule-item strong {
+  display: block;
   font-size: 15px;
 }
 
-.schedule-item span {
+.schedule-item small {
+  display: block;
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.schedule-item.complete small {
+  color: var(--green);
+}
+
+.schedule-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.schedule-actions > span:first-child {
   min-width: 72px;
   border-radius: 999px;
   padding: 7px 10px;
@@ -639,6 +658,35 @@ input:focus {
   text-align: center;
   font-size: 13px;
   font-weight: 900;
+}
+
+.schedule-check,
+.schedule-dot {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  border: 2px solid #d1d5db;
+  background: var(--surface);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.schedule-check {
+  cursor: pointer;
+  transition: transform 160ms ease, background 160ms ease, border-color 160ms ease;
+}
+
+.schedule-check:active {
+  transform: scale(0.94);
+}
+
+.schedule-check.done,
+.schedule-dot.done {
+  border-color: var(--green);
+  background: var(--green);
 }
 
 .person-JT {
