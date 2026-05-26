@@ -13,7 +13,7 @@ const defaultState = {
 };
 
 export default async (request) => {
-  const store = getStore("chores-guide");
+  const store = getStore({ name: "chores-guide", consistency: "strong" });
   const state = await getState(store);
 
   if (request.method === "GET") {
