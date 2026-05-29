@@ -709,6 +709,10 @@ input:focus {
   background: #00a7b5;
 }
 
+.person-David {
+  background: #6f5bd5;
+}
+
 .person-Oliver {
   background: var(--pink);
 }

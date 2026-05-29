@@ -1,4 +1,4 @@
-const residents = ["JT", "Liam", "Jeff", "Todd", "Tom", "Oliver"];
+const residents = ["JT", "Liam", "Jeff", "Todd", "Tom", "David", "Oliver"];
 const adminPassword = "360360";
 const timeApiUrl = "https://timeapi.io/api/time/current/zone?timeZone=America/New_York";
 const sharedStateApi = "/.netlify/functions/chores-state";
@@ -12,7 +12,10 @@ const chores = [
   "Laundry room",
   "Living room down",
 ];
-const baseAssignments = ["JT", "Liam", "Jeff", "Todd", "Tom", "Oliver", "Tom", "Oliver"];
+const baseAssignments = ["JT", "Liam", "Jeff", "Todd", "Tom", "David", "Oliver", "Oliver"];
+const stairsChore = "Stairs hallway";
+const stairsExemptResident = "David";
+const doubleChoreResident = "Oliver";
 
 const storageKeys = {
   profile: "chores.profile",
@@ -418,10 +421,21 @@ function maybeAwardCycleStreak(schedule, day, offset) {
 }
 
 function getSchedule(offset) {
-  return chores.map((chore, index) => ({
+  const schedule = chores.map((chore, index) => ({
     chore,
     person: baseAssignments[positiveModulo(index - offset, baseAssignments.length)],
   }));
+
+  const stairsIndex = schedule.findIndex((item) => item.chore === stairsChore);
+  if (schedule[stairsIndex]?.person === stairsExemptResident) {
+    const swapIndex = schedule.findIndex((item, index) => index !== stairsIndex && item.person === doubleChoreResident);
+    if (swapIndex !== -1) {
+      schedule[stairsIndex].person = doubleChoreResident;
+      schedule[swapIndex].person = stairsExemptResident;
+    }
+  }
+
+  return schedule;
 }
 
 function getScheduleOffset(day) {
