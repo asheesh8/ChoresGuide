@@ -1,6 +1,9 @@
 import { getStore } from "@netlify/blobs";
 
-const adminPassword = process.env.JEFF_ADMIN_PASSWORD || "360360";
+// Set JEFF_ADMIN_PASSWORD in the Netlify site settings. There is deliberately no
+// fallback: without it, admin actions are refused rather than unlocked by a
+// password anyone can read in this public repo.
+const adminPassword = process.env.JEFF_ADMIN_PASSWORD || "";
 const stateKey = "state";
 
 const defaultState = {
@@ -31,7 +34,12 @@ export default async (request) => {
     return json({ error: "Bad JSON" }, 400);
   }
 
-  const isAdmin = body.adminPassword === adminPassword;
+  const isAdmin = Boolean(adminPassword) && body.adminPassword === adminPassword;
+
+  // Lets the sign-in screen check Jeff's password without changing any state.
+  if (body.action === "checkAdmin") {
+    return json({ ok: isAdmin }, isAdmin ? 200 : 403);
+  }
   const nextState = {
     ...state,
     completed: { ...state.completed },
