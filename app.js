@@ -1,5 +1,4 @@
 const residents = ["JT", "Liam", "Jeff", "Todd", "Tom", "David", "Oliver"];
-const adminPassword = "360360";
 const timeApiUrl = "https://timeapi.io/api/time/current/zone?timeZone=America/New_York";
 const sharedStateApi = "/.netlify/functions/chores-state";
 const chores = [
@@ -81,11 +80,12 @@ residentChips.innerHTML = residents.map((name) => `<span>${name}</span>`).join("
 residentSelect.addEventListener("change", syncAdminLogin);
 syncAdminLogin();
 
-profileForm.addEventListener("submit", (event) => {
+profileForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const isJeff = residentSelect.value === "Jeff";
 
-  if (isJeff && adminPasswordInput.value !== adminPassword) {
+  // Jeff's password is checked by the server function, never in the browser.
+  if (isJeff && !(await isValidAdminPassword(adminPasswordInput.value))) {
     loginError.classList.remove("hidden");
     adminPasswordInput.focus();
     return;
@@ -525,8 +525,24 @@ function persistState() {
   saveChoreDate();
 }
 
+// Asks the server whether Jeff's password is right. /api/check-admin is the
+// Vercel function; the Netlify function answers the same "checkAdmin" action
+// when the site runs on Netlify instead.
+async function isValidAdminPassword(password) {
+  try {
+    const response = await fetch(remoteEnabled ? sharedStateApi : "/api/check-admin", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "checkAdmin", adminPassword: password }),
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
 function getAdminPasswordForRequest() {
-  return isJeffAdmin() ? profile.adminToken || adminPassword : "";
+  return isJeffAdmin() ? profile.adminToken || "" : "";
 }
 
 async function syncLiveDate() {
